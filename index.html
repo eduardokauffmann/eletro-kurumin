@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Eletro Kurumin</title>
+</head>
+<body>
+
+    <!-- 1. LOGIN -->
+    <div id="login-div">
+        <h2>Login - Eletro Kurumin</h2>
+        <input type="email" id="email" value="admin@kurumin.pt" placeholder="E-mail"><br><br>
+        <input type="password" id="senha" value="123456" placeholder="Palavra-passe"><br><br>
+        <button onclick="fazerLogin()">Entrar</button>
+    </div>
+
+    <!-- 2. SISTEMA -->
+    <div id="sistema-div" style="display:none;">
+        <h2>Gestão de Stock</h2>
+        <button onclick="location.reload()">Sair</button>
+        <hr>
+
+        <!-- FORMULÁRIO -->
+        <h3>Novo Componente</h3>
+        <input type="text" id="nome" placeholder="Nome do componente"><br><br>
+        <select id="categoria">
+            <option value="1">Resistores</option>
+            <option value="2">Semicondutores</option>
+            <option value="3">Placas</option>
+        </select><br><br>
+        <input type="number" step="0.01" id="preco" placeholder="Preço (€)"><br><br>
+        <input type="number" id="qtd" placeholder="Quantidade"><br><br>
+        <button onclick="adicionarComponente()">Adicionar ao HeidiSQL</button>
+
+        <hr>
+
+        <!-- RELATÓRIO -->
+        <h3>Relatório de Stock</h3>
+        <p>Total de Itens: <b id="total-itens">0</b></p>
+        <p>Valor Total em Stock: <b id="valor-total">€ 0.00</b></p>
+
+        <hr>
+
+        <!-- TABELA -->
+        <h3>Componentes Registados</h3>
+        <table border="1" cellpadding="5">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Categoria</th>
+                    <th>Preço</th>
+                    <th>Qtd</th>
+                    <th>Subtotal</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody id="tabela"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const API = 'http://localhost:3000/api';
+
+        async function fazerLogin() {
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+
+            const res = await fetch(`${API}/login`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email, senha })
+            });
+
+            if (res.ok) {
+                document.getElementById('login-div').style.display = 'none';
+                document.getElementById('sistema-div').style.display = 'block';
+                carregarDados();
+            } else {
+                alert('Login inválido!');
+            }
+        }
+
+        async function carregarDados() {
+            const res = await fetch(`${API}/componentes`);
+            const componentes = await res.json();
+
+            const tbody = document.getElementById('tabela');
+            tbody.innerHTML = '';
+            
+            let totalQtd = 0;
+            let valorTotal = 0;
+
+            componentes.forEach(c => {
+                const subtotal = c.preco * c.quantidade_estoque;
+                totalQtd += c.quantidade_estoque;
+                valorTotal += subtotal;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${c.nome}</td>
+                        <td>${c.categoria}</td>
+                        <td>€ ${parseFloat(c.preco).toFixed(2)}</td>
+                        <td>${c.quantidade_estoque}</td>
+                        <td>€ ${subtotal.toFixed(2)}</td>
+                        <td><button onclick="eliminar(${c.id_componente})">Eliminar</button></td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('total-itens').innerText = totalQtd;
+            document.getElementById('valor-total').innerText = `€ ${valorTotal.toFixed(2)}`;
+        }
+
+        async function adicionarComponente() {
+            const nome = document.getElementById('nome').value;
+            const id_categoria = document.getElementById('categoria').value;
+            const preco = document.getElementById('preco').value;
+            const quantidade_estoque = document.getElementById('qtd').value;
+
+            await fetch(`${API}/componentes`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ id_categoria, nome, preco, quantidade_estoque })
+            });
+
+            // Limpa campos e recarrega
+            document.getElementById('nome').value = '';
+            document.getElementById('preco').value = '';
+            document.getElementById('qtd').value = '';
+            carregarDados();
+        }
+
+        async function eliminar(id) {
+            await fetch(`${API}/componentes/${id}`, { method: 'DELETE' });
+            carregarDados();
+        }
+    </script>
+</body>
+</html>
